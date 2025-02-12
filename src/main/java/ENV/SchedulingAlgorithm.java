@@ -10,7 +10,5 @@ package ENV;
  */
 public enum SchedulingAlgorithm {
 
-    FCFS,
-    SJF,
-    ROUND_ROBIN
+    FCFS, SJF, SRT, ROUND_ROBIN, SPN, HRRN, FEEDBACK
 }

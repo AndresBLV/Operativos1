@@ -7,6 +7,7 @@ package Class;
 import EDD.CustomQueue;
 import ENV.ProcessState;
 import ENV.SchedulingAlgorithm;
+import static ENV.SchedulingAlgorithm.FCFS;
 import java.util.concurrent.Semaphore;
 
 /**
@@ -25,6 +26,10 @@ public class Scheduler extends Thread {
     private Semaphore processSemaphoer;
     private int nextProcessId;
     private SchedulingAlgorithm currentAlgorithm = SchedulingAlgorithm.FCFS;
+    private int quantum = 6;
+    private CustomQueue<Process>[] feedbackQueues; // Arreglo de colas con diferentes prioridades
+    private int[] quantumPerLevel; // Quantum para cada nivel
+    private static final int NUM_LEVELS = 3; // Número de niveles de prioridad
 
     public Scheduler(int numCPUs) {
         this.allQueue = new CustomQueue<>();
@@ -39,13 +44,22 @@ public class Scheduler extends Thread {
         for (int i = 0; i < numCPUs; i++) {
             this.cpus[i] = new CPU(i + 1);
         }
+        this.feedbackQueues = new CustomQueue[NUM_LEVELS];
+        for (int i = 0; i < NUM_LEVELS; i++) {
+            feedbackQueues[i] = new CustomQueue<>();
+        }
+
+        // Configurar quantum para cada nivel (aumenta exponencialmente)
+        this.quantumPerLevel = new int[NUM_LEVELS];
+        for (int i = 0; i < NUM_LEVELS; i++) {
+            quantumPerLevel[i] = (int) Math.pow(2, i) * 2; // 2, 4, 8 unidades de tiempo
+        }
     }
 
     public void createProcess(String name, int instructions, boolean isIOBound, int cyclesUntilInterrupt, int cyclesForIO) {
         Process process = new Process(nextProcessId++, name, instructions, isIOBound, cyclesUntilInterrupt, cyclesForIO);
         readyQueue.enqueue(process);
         allQueue.enqueue(process);
-        printQueues();
     }
 
     public void printQueues() {
@@ -75,6 +89,79 @@ public class Scheduler extends Thread {
             }
         }
         cpuSemaphore.release();
+    }
+
+    private double calculatePriorityScore(Process process) {
+        double score = 0;
+
+        // Factor 1: Instrucciones restantes (menor es mejor)
+        score += process.getRemainingInstructions();
+
+        // Factor 2: Tiene interrupciones (los procesos sin interrupciones tienen prioridad)
+        if (!process.isIOBound()) {
+            score -= 1000; // Bonificación para procesos sin interrupciones
+        }
+
+        // Factor 3: Tiempo de espera por IO (más tiempo de espera tiene prioridad)
+        if (process.isIOBound()) {
+            score += process.getCyclesForIO() * 100; // Penalizar tiempos IO más largos
+            score -= process.cyclesForIO * 50; // Priorizar procesos que han esperado más
+        }
+
+        return score;
+    }
+
+    public void sortReadyQueueByPriority() {
+        if (readyQueue.isEmpty() || readyQueue.size() == 1) {
+            return;
+        }
+
+        CustomQueue<Process> sortedQueue = new CustomQueue<>();
+        CustomQueue<Process> tempQueue = new CustomQueue<>();
+
+        // Copiar todos los procesos a tempQueue
+        while (!readyQueue.isEmpty()) {
+            Process axu = readyQueue.dequeue();
+            tempQueue.enqueue(axu);
+        }
+
+        // Ordenar los procesos por prioridad
+        while (!tempQueue.isEmpty()) {
+            Process highestPriorityProcess = null;
+            double highestPriorityScore = Double.MAX_VALUE;
+            CustomQueue<Process> auxiliaryQueue = new CustomQueue<>();
+
+            // Buscar el proceso con la mayor prioridad
+            while (!tempQueue.isEmpty()) {
+                Process currentProcess = tempQueue.dequeue();
+                double currentScore = calculatePriorityScore(currentProcess);
+
+                // Si el proceso tiene mayor prioridad, lo ponemos en sortedQueue
+                if (currentScore < highestPriorityScore) {
+                    if (highestPriorityProcess != null) {
+                        auxiliaryQueue.enqueue(highestPriorityProcess);
+                    }
+                    highestPriorityProcess = currentProcess;
+                    highestPriorityScore = currentScore;
+                } else {
+                    auxiliaryQueue.enqueue(currentProcess);
+                }
+            }
+
+            // Agregar el proceso con mayor prioridad a la cola ordenada
+            if (highestPriorityProcess != null) {
+                sortedQueue.enqueue(highestPriorityProcess);
+            }
+
+            // Volver a colocar los procesos restantes en tempQueue
+            while (!auxiliaryQueue.isEmpty()) {
+                tempQueue.enqueue(auxiliaryQueue.dequeue());
+            }
+        }
+
+        // Actualizar la readyQueue con la cola ordenada
+        this.readyQueue = sortedQueue;
+        this.readyQueue.printQueue();
     }
 
     public void deleteCPU() throws InterruptedException {
@@ -123,6 +210,7 @@ public class Scheduler extends Thread {
     }
 
     public Process getNextProcess() {
+
         CustomQueue<Process> tempQueue = new CustomQueue<>();
         Process selectedProcess = null;
 
@@ -130,7 +218,12 @@ public class Scheduler extends Thread {
             case FCFS:
                 selectedProcess = readyQueue.dequeue();
                 break;
-
+            case SRT:
+                selectedProcess = selectShortestJob(true); // true indica que es preemptivo
+                if (selectedProcess != null) {
+                    handlePreemption(selectedProcess);
+                }
+                break;
             case SJF:
                 int shortestTime = Integer.MAX_VALUE;
                 while (!readyQueue.isEmpty()) {
@@ -152,13 +245,57 @@ public class Scheduler extends Thread {
 
             case ROUND_ROBIN:
                 selectedProcess = readyQueue.dequeue();
-                if (selectedProcess != null) {
-                    readyQueue.enqueue(selectedProcess);
+                break;
+
+            case FEEDBACK:
+                selectedProcess = getNextProcessMLFQ();
+                break;
+            case HRRN:
+                double highestRatio = -1;
+                while (!readyQueue.isEmpty()) {
+                    Process process = readyQueue.dequeue();
+                    double ratio = calculateResponseRatio(process);
+
+                    if (ratio > highestRatio) {
+                        if (selectedProcess != null) {
+                            tempQueue.enqueue(selectedProcess);
+                        }
+                        selectedProcess = process;
+                        highestRatio = ratio;
+                    } else {
+                        tempQueue.enqueue(process);
+                    }
+                }
+                // Restaurar los procesos no seleccionados a la cola
+                while (!tempQueue.isEmpty()) {
+                    readyQueue.enqueue(tempQueue.dequeue());
                 }
                 break;
         }
 
         return selectedProcess;
+    }
+
+    private void handlePreemption(Process newProcess) {
+        if (newProcess == null) {
+            return;
+        }
+
+        // Verificar todos los CPUs para encontrar un proceso con un tiempo restante mayor
+        for (CPU cpu : cpus) {
+            if (cpu != null && cpu.isBusy()) {
+                Process runningProcess = cpu.getCurrentProcess();
+                if (runningProcess != null
+                        && runningProcess.getRemainingInstructions() > newProcess.getRemainingInstructions()) {
+                    // Preemptar el proceso en ejecución
+                    cpu.releaseProcess();
+                    readyQueue.enqueue(runningProcess);
+                    runningProcess.setStateProcess(ProcessState.READY);
+                    System.out.println("Proceso " + runningProcess.getIdProcess() + " preemptado por SRT");
+                    break;
+                }
+            }
+        }
     }
 
     public CPU getNotBusyCPU() {
@@ -172,7 +309,13 @@ public class Scheduler extends Thread {
         return null;
     }
 
-   @Override
+    private double calculateResponseRatio(Process process) {
+        double waitingTime = process.getWaitTime();
+        double serviceTime = process.getRemainingInstructions();
+        return (waitingTime + serviceTime) / serviceTime;
+    }
+
+    @Override
     public void run() {
         while (true) {
             try {
@@ -204,17 +347,18 @@ public class Scheduler extends Thread {
             }
         }
     }
-      private void checkAndUpdateBlockedProcesses() {
+
+    private void checkAndUpdateBlockedProcesses() {
         if (!blockedQueue.isEmpty()) {
             CustomQueue<Process> tempQueue = new CustomQueue<>();
-            
+
             while (!blockedQueue.isEmpty()) {
                 Process blockedProcess = blockedQueue.dequeue();
-                
+
                 try {
                     Thread.sleep(100);
                     blockedProcess.ioWaitTime++;
-                    
+
                     if (blockedProcess.getIOProgress() >= blockedProcess.getCyclesForIO()) {
                         // El proceso ha completado su E/S, mover a cola de listos
                         blockedProcess.reanudar();
@@ -226,41 +370,187 @@ public class Scheduler extends Thread {
                     e.printStackTrace();
                 }
             }
-            
+
             while (!tempQueue.isEmpty()) {
                 blockedQueue.enqueue(tempQueue.dequeue());
             }
         }
     }
 
-     private void executeProcess(CPU cpu, Process process) {
+    private boolean shouldPreempt(Process currentProcess) {
+        if (readyQueue.isEmpty()) {
+            return false; // No hay procesos en la cola de listos para preemptar
+        }
+
+        // Obtener el proceso con el tiempo restante más corto de la cola de listos
+        Process shortestJob = null;
+        try {
+            shortestJob = selectShortestJob(true);
+        } catch (NullPointerException e) {
+            // Manejar la excepción si tempQueue es null o si dequeue() falla
+            System.err.println("Error: tempQueue es null o no se pudo desencolar.");
+            e.printStackTrace(); // Imprimir el stack trace para depuración
+        }
+        // Verificar si el proceso en ejecución debe ser preemptado
+        if (shortestJob != null && shortestJob.getRemainingInstructions() < currentProcess.getRemainingInstructions()) {
+            return true; // Hay un proceso con tiempo restante menor
+        }
+
+        return false; // No es necesario preemptar
+    }
+
+    private void executeMFLQ(CPU cpu, Process process) {
         cpu.assignProcess(process);
         process.setStateProcess(ProcessState.RUNNING);
-        System.out.println("CPU " + cpu.getId() + " ahora está ocupado con proceso " + process.getIdProcess());
+        System.out.println("CPU " + cpu.getId() + " ejecutando proceso " + process.getIdProcess() + " en nivel " + process.getPriorityLevel());
 
         Thread executionThread = new Thread(() -> {
-            while (!process.getStateProcess().equals(ProcessState.FINISHED) && 
-                   !process.getStateProcess().equals(ProcessState.BLOCKED)) {
+            int currentQuantum = quantumPerLevel[process.getPriorityLevel()];
+            int programCounter = 0;
+
+            while (!process.getStateProcess().equals(ProcessState.FINISHED)
+                    && !process.getStateProcess().equals(ProcessState.BLOCKED)) {
+
                 process.executeNextInstruction();
+                programCounter++;
+
+                if (programCounter >= currentQuantum && process.getStateProcess() == ProcessState.RUNNING) {
+                    System.out.println("Quantum agotado para proceso " + process.getIdProcess() + " en nivel " + process.getPriorityLevel());
+
+                    // Degradar prioridad si no es el último nivel
+                    if (process.getPriorityLevel() < NUM_LEVELS - 1) {
+                        process.setPriorityLevel(process.getPriorityLevel() + 1);
+                        System.out.println("Proceso " + process.getIdProcess() + " degradado al nivel " + process.getPriorityLevel());
+                    }
+
+                    process.setStateProcess(ProcessState.READY);
+                    cpu.releaseProcess();
+                    cpuSemaphore.release();
+                    feedbackQueues[process.getPriorityLevel()].enqueue(process);
+                    break;
+                }
             }
 
             if (process.getStateProcess().equals(ProcessState.BLOCKED)) {
-                // Si el proceso está bloqueado, liberar CPU y mover a cola de bloqueados
-                System.out.println("CPU " + cpu.getId() + " liberado del proceso " + process.getIdProcess());
                 cpu.releaseProcess();
                 cpuSemaphore.release();
                 blockedQueue.enqueue(process);
             } else if (process.getStateProcess().equals(ProcessState.FINISHED)) {
-                // Si el proceso terminó, mover a cola de finalizados
                 finishedQueue.enqueue(process);
-                System.out.println("Proceso " + process.getIdProcess() + " movido a cola de finalizados");
-                System.out.println("CPU " + cpu.getId() + " liberado del proceso " + process.getIdProcess());
                 cpu.releaseProcess();
                 cpuSemaphore.release();
             }
         });
-        
+
         executionThread.start();
+    }
+
+    private void executeProcess(CPU cpu, Process process) {
+        if (currentAlgorithm == SchedulingAlgorithm.FEEDBACK) {
+            executeMFLQ(cpu, process);
+        } else {
+            cpu.assignProcess(process);
+            process.setStateProcess(ProcessState.RUNNING);
+            System.out.println("CPU " + cpu.getId() + " ahora está ocupado con proceso " + process.getIdProcess());
+
+            Thread executionThread = new Thread(() -> {
+                int programcounter = 0;
+                while (!process.getStateProcess().equals(ProcessState.FINISHED)
+                        && !process.getStateProcess().equals(ProcessState.BLOCKED)) {
+
+                    process.executeNextInstruction();
+                    programcounter++;
+                    if (programcounter == this.quantum && this.getCurrentAlgorithm() == SchedulingAlgorithm.ROUND_ROBIN && process.getStateProcess() == ProcessState.RUNNING) {
+                        System.out.println("Se acabo el tiempo");
+                        process.setStateProcess(ProcessState.READY);
+                        cpu.releaseProcess();
+                        cpuSemaphore.release();
+                        this.readyQueue.enqueue(process);
+                        break;
+
+                    }
+                    if (this.getCurrentAlgorithm() == SchedulingAlgorithm.SRT && shouldPreempt(process) && process.getStateProcess() == ProcessState.RUNNING) {
+                        System.out.println("Proceso " + process.getIdProcess() + " preemptado por SRT");
+                        process.setStateProcess(ProcessState.READY);
+                        cpu.releaseProcess();
+                        cpuSemaphore.release();
+                        this.readyQueue.enqueue(process);
+                        break; // Salir del bucle de ejecución
+                    }
+                }
+
+                if (process.getStateProcess().equals(ProcessState.BLOCKED)) {
+                    // Si el proceso está bloqueado, liberar CPU y mover a cola de bloqueados
+                    System.out.println("CPU " + cpu.getId() + " liberado del proceso " + process.getIdProcess());
+                    cpu.releaseProcess();
+                    cpuSemaphore.release();
+                    blockedQueue.enqueue(process);
+                } else if (process.getStateProcess().equals(ProcessState.FINISHED)) {
+                    // Si el proceso terminó, mover a cola de finalizados
+                    finishedQueue.enqueue(process);
+                    System.out.println("Proceso " + process.getIdProcess() + " movido a cola de finalizados");
+                    System.out.println("CPU " + cpu.getId() + " liberado del proceso " + process.getIdProcess());
+                    cpu.releaseProcess();
+                    cpuSemaphore.release();
+                }
+            });
+
+            executionThread.start();
+        }
+    }
+
+    private Process getNextProcessMLFQ() {
+        // Buscar proceso en orden de prioridad
+        for (int i = 0; i < NUM_LEVELS; i++) {
+            if (!feedbackQueues[i].isEmpty()) {
+                return feedbackQueues[i].dequeue();
+            }
+        }
+        return null;
+    }
+
+    private Process selectShortestJob(boolean preemptive) {
+        if (readyQueue.isEmpty()) {
+            return null;
+        }
+
+        CustomQueue<Process> tempQueue = new CustomQueue<>();
+        Process shortestJob = null;
+        int shortestTime = Integer.MAX_VALUE;
+
+        while (!readyQueue.isEmpty()) {
+            Process current = readyQueue.dequeue();
+            int currentTime = current.getRemainingInstructions();
+
+            if (currentTime < shortestTime) {
+                if (shortestJob != null) {
+                    tempQueue.enqueue(shortestJob);
+                }
+                shortestJob = current;
+                shortestTime = currentTime;
+            } else {
+                tempQueue.enqueue(current);
+            }
+        }
+
+        // Restaurar los procesos que no fueron seleccionados en la cola de listos
+        while (!tempQueue.isEmpty()) {
+
+            try {
+
+                // Intentar desencolar un elemento de tempQueue y encolarlo en readyQueue
+                Process process = tempQueue.dequeue(); // Desencolar
+                if (process != null) { // Verificar si el proceso no es nulo
+                    readyQueue.enqueue(process); // Encolar en readyQueue
+                }
+            } catch (NullPointerException e) {
+                // Manejar la excepción si tempQueue es null o si dequeue() falla
+                System.err.println("Error: tempQueue es null o no se pudo desencolar.");
+                e.printStackTrace(); // Imprimir el stack trace para depuración
+            }
+        }
+
+        return shortestJob;
     }
 
     public void setCycleDuration(int duration) {

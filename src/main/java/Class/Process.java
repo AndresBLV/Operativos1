@@ -11,6 +11,7 @@ import ENV.ProcessState;
  * @author Indatech
  */
 public class Process extends Thread {
+
     private int id;
     private String name;
     private ProcessState state;
@@ -19,13 +20,16 @@ public class Process extends Thread {
     private int totalInstructions;
     private boolean isIOBound;
     private int cyclesUntilInterrupt;
-    private int cyclesForIO;
+    int cyclesForIO;
     private int remainingInstructions;
     private volatile boolean pause;
     private int currentIOCycleCount;
-     int ioWaitTime;
+    int ioWaitTime;
     private volatile boolean isRunning;
-
+    private long creationTime;
+    private long lastReadyTime; // Tiempo cuando el proceso entró a estado READY
+    private long totalWaitTime; // Tiempo total acumulado en estado READY
+  private int priorityLevel;
     public Process(int id, String name, int totalInstructions, boolean isIOBound, int cyclesUntilInterrupt, int cyclesForIO) {
         this.id = id;
         this.name = name;
@@ -41,6 +45,9 @@ public class Process extends Thread {
         this.currentIOCycleCount = 0;
         this.ioWaitTime = 0;
         this.isRunning = true;
+        this.creationTime = System.currentTimeMillis();
+        this.lastReadyTime = this.creationTime;
+        this.totalWaitTime = 0;
     }
 
     public void executeNextInstruction() {
@@ -80,6 +87,14 @@ public class Process extends Thread {
         System.out.println("Proceso " + id + " bloqueado por E/S");
     }
 
+    
+      public int getPriorityLevel() {
+        return priorityLevel;
+    }
+
+    public void setPriorityLevel(int priorityLevel) {
+        this.priorityLevel = priorityLevel;
+    }
     public void reanudar() {
         pause = false;
         ioWaitTime = 0;
@@ -92,11 +107,18 @@ public class Process extends Thread {
         return pause;
     }
 
+    public long getCreationTime() {
+        return creationTime;
+    }
+
+    public void setCreationTime(long creationTime) {
+        this.creationTime = creationTime;
+    }
+
     public void setIoWaitTime(int ioWaitTime) {
         this.ioWaitTime = ioWaitTime;
     }
 
-    
     public boolean needsToBeUnblocked() {
         return pause && ioWaitTime >= cyclesUntilInterrupt;
     }
@@ -158,6 +180,20 @@ public class Process extends Thread {
         if (remainingInstructions > 0) {
             remainingInstructions--;
         }
+    }
+    // Método para obtener el tiempo de espera actual
+
+    public double getWaitTime() {
+        if (state == ProcessState.READY) {
+            // Si está en READY, incluir el tiempo actual
+            return totalWaitTime + (System.currentTimeMillis() - lastReadyTime);
+        }
+        return totalWaitTime;
+    }
+
+    // Método para obtener el tiempo total desde la creación
+    public double getTurnaroundTime() {
+        return System.currentTimeMillis() - creationTime;
     }
 
     @Override
