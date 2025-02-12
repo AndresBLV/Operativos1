@@ -1,0 +1,10 @@
+Class\CPU.class
+Class\Scheduler.class
+ENV\ProcessState.class
+EDD\CustomQueue$Node.class
+SimuladorUI\SimulatorGUI.class
+com\mycompany\mavenproject2\Mavenproject2.class
+Class\Process.class
+EDD\CustomQueue.class
+Class\Scheduler$1.class
+ENV\SchedulingAlgorithm.class
