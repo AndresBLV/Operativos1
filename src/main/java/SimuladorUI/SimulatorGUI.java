@@ -97,10 +97,15 @@ public class SimulatorGUI extends JFrame {
         startButton.addActionListener(e -> {
             if (!isSimulationRunning) {
                 start();
-                startButton.setText("Detener");
-            } else {
+            } 
+        });
+        
+        JButton stopButton = new JButton("Detener");
+        stopButton.addActionListener(e -> {
+            if (isSimulationRunning) {
                 stop();
-                startButton.setText("Iniciar");
+            }else{
+                JOptionPane.showMessageDialog(null,"No ha iniciado el simulador");
             }
         });
 
@@ -113,6 +118,7 @@ public class SimulatorGUI extends JFrame {
         panel.add(cpuCountSpinner);
         panel.add(newProcessBtn);
         panel.add(startButton);
+        panel.add(stopButton);
 
         return panel;
     }
@@ -276,7 +282,7 @@ public class SimulatorGUI extends JFrame {
         isSimulationRunning = true;
         updateTimer.start();
         System.out.println("estamos");
-        this.scheduler.run();
+        this.scheduler.start();
         
 
         
