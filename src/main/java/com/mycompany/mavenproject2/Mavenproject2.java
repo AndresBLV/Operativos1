@@ -4,7 +4,6 @@
 package com.mycompany.mavenproject2;
 
 import Class.Scheduler;
-import Class.Process;
 import ENV.SchedulingAlgorithm;
 import SimuladorUI.SimulatorGUI;
 import javax.swing.SwingUtilities;

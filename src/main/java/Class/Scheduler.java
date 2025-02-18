@@ -171,6 +171,10 @@ public class Scheduler extends Thread {
             if (this.cpus[i] != null) {
                 this.cpus[i] = null;
                 System.out.println("salio2");
+
+
+
+
                 break;
             }
         }
