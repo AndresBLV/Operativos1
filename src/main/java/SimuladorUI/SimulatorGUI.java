@@ -120,6 +120,7 @@ public class SimulatorGUI extends JFrame {
         JButton startButton = new JButton("Iniciar");
         startButton.addActionListener(e -> {
             if (!isSimulationRunning) {
+                newProcessBtn.setVisible(false);
                 start();
             } 
         });
@@ -128,6 +129,7 @@ public class SimulatorGUI extends JFrame {
         JButton stopButton = new JButton("Detener");
         stopButton.addActionListener(e -> {
             if (isSimulationRunning) {
+                newProcessBtn.setVisible(true);
                 stop();
             }else{
                 JOptionPane.showMessageDialog(null,"No ha iniciado el simulador");
