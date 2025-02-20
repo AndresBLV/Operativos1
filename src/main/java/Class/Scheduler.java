@@ -8,6 +8,11 @@ import EDD.CustomQueue;
 import ENV.ProcessState;
 import ENV.SchedulingAlgorithm;
 import static ENV.SchedulingAlgorithm.FCFS;
+import static ENV.SchedulingAlgorithm.FEEDBACK;
+import static ENV.SchedulingAlgorithm.HRRN;
+import static ENV.SchedulingAlgorithm.ROUND_ROBIN;
+import static ENV.SchedulingAlgorithm.SJF;
+import static ENV.SchedulingAlgorithm.SRT;
 import java.util.concurrent.Semaphore;
 
 /**
@@ -73,20 +78,19 @@ public class Scheduler extends Thread {
         this.blockedQueue.printQueue();
     }
 
-    public void addCPU() {
+    public void addCPU(int newCount) {
         for (int i = 0; i < 5; i++) {
             if (this.cpus[i] != null) {
                 System.out.println("CPUS" + this.cpus[i].getId());
             }
         }
-        for (int i = 2; i < 5; i++) {
+        for (int i = newCount-1; i < 5; i++) {
             System.out.println("iteraciones");
             if (this.cpus[i] == null) {
                 this.cpus[i] = new CPU(i + 1);
                 System.out.println("salio1");
-                break;
-
             }
+            break;
         }
         cpuSemaphore.release();
     }
@@ -164,17 +168,13 @@ public class Scheduler extends Thread {
         this.readyQueue.printQueue();
     }
 
-    public void deleteCPU() throws InterruptedException {
+    public void deleteCPU(int newCount) throws InterruptedException {
 
-        for (int i = 4; i >= 2; i--) {
+        for (int i = newCount; i >= 2; i--) {
             System.out.println("iteraciones2");
             if (this.cpus[i] != null) {
                 this.cpus[i] = null;
                 System.out.println("salio2");
-
-
-
-
                 break;
             }
         }

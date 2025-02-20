@@ -9,8 +9,15 @@ import EDD.CustomQueue;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.util.Arrays;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 
 public class SimulatorGUI extends JFrame {
 
@@ -86,8 +93,25 @@ public class SimulatorGUI extends JFrame {
         SpinnerNumberModel cpuCountModel = new SpinnerNumberModel(
                 DEFAULT_CPU_COUNT, MIN_CPU_COUNT, MAX_CPU_COUNT, 1);
         JSpinner cpuCountSpinner = new JSpinner(cpuCountModel);
-//        cpuCountSpinner.addChangeListener(e -> updateCPUCount((Integer) cpuCountSpinner.getValue()));
-
+        Integer[] oldValues = {(Integer) cpuCountSpinner.getValue()};
+        cpuCountSpinner.addChangeListener(new ChangeListener(){
+            @Override
+            public void stateChanged(ChangeEvent e) {
+            int newValue = (Integer) cpuCountSpinner.getValue();
+            int oldValue = oldValues[0];
+            if (newValue > oldValue){
+                updateCPUCount(newValue);
+            }else{
+                try {
+                    deleteCPUCount((Integer) cpuCountSpinner.getValue());
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(SimulatorGUI.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+            oldValues[0] = newValue;
+            }
+            });
+        
         // Process creation button
         JButton newProcessBtn = new JButton("New Process");
         newProcessBtn.addActionListener(e -> showNewProcessDialog());
@@ -100,6 +124,7 @@ public class SimulatorGUI extends JFrame {
             } 
         });
         
+        // Stop simulation button
         JButton stopButton = new JButton("Detener");
         stopButton.addActionListener(e -> {
             if (isSimulationRunning) {
@@ -123,14 +148,22 @@ public class SimulatorGUI extends JFrame {
         return panel;
     }
 
-//    private void updateCPUCount(int newCount) {
-//        scheduler.updateCPUCount(newCount, this);
-//        cpus.clear();
-//        for (int i = 0; i < newCount; i++) {
-//            addCPU();
-//        }
-//        updateGUI();
-//    }
+    private void updateCPUCount(int newCount) {
+        //System.out.println(Arrays.toString(scheduler.getCpus()));
+        scheduler.addCPU(newCount);
+        //System.out.println(Arrays.toString(scheduler.getCpus()));
+        updateGUI();
+    }
+    
+    private void deleteCPUCount(int newCount) throws InterruptedException {
+        //System.out.println(Arrays.toString(scheduler.getCpus()));
+        System.out.println(newCount);
+        scheduler.deleteCPU(newCount);
+        //System.out.println(Arrays.toString(scheduler.getCpus()));
+        updateGUI();
+    }
+    
+    @SuppressWarnings("empty-statement")
     private void showNewProcessDialog() {
         JDialog dialog = new JDialog(this, "Create New Process", true);
         dialog.setLayout(new GridLayout(0, 2, 5, 5));
@@ -154,6 +187,17 @@ public class SimulatorGUI extends JFrame {
         dialog.add(cyclesUntilInterruptSpinner);
         dialog.add(new JLabel("Cycles For IO:"));
         dialog.add(cyclesForIOSpinner);
+        cyclesForIOSpinner.setEnabled(false);
+        isIOBoundCheck.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // Habilitar o deshabilitar el campo de texto según el estado de la checkbox
+                cyclesForIOSpinner.setEnabled(isIOBoundCheck.isSelected());
+            }
+        });
+       
+        
+
 
         JButton createButton = new JButton("Create");
         createButton.addActionListener(e -> {
@@ -281,7 +325,7 @@ public class SimulatorGUI extends JFrame {
     public void start() {
         isSimulationRunning = true;
         updateTimer.start();
-        System.out.println("estamos");
+        //System.out.println("estamos");
         this.scheduler.start();
         
 
