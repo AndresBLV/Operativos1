@@ -277,26 +277,61 @@ public class SimulatorGUI extends JFrame {
     }
 
     private void updateQueuePanel() {
-        queuePanel.removeAll();
+    queuePanel.removeAll();
 
-        // Ready queue
-        JPanel readyQueuePanel = new JPanel();
-        readyQueuePanel.setBorder(BorderFactory.createTitledBorder("Ready Queue"));
-        updateQueueDisplay(readyQueuePanel, scheduler.getReadyQueue());
-        queuePanel.add(readyQueuePanel);
+    // Crear colas temporales para los diferentes estados
+    CustomQueue<Process> readyProcesses = new CustomQueue<>();
+    CustomQueue<Process> blockedProcesses = new CustomQueue<>();
+    CustomQueue<Process> finishedProcesses = new CustomQueue<>();
 
-        // Blocked queue
-        JPanel blockedQueuePanel = new JPanel();
-        blockedQueuePanel.setBorder(BorderFactory.createTitledBorder("Blocked Queue"));
-        updateQueueDisplay(blockedQueuePanel, scheduler.getBlockedQueue());
-        queuePanel.add(blockedQueuePanel);
+    // Recorrer la cola allQueue y clasificar los procesos
+    CustomQueue<Process> tempQueue = new CustomQueue<>(); // Para restaurar la cola después de recorrerla
 
-        // Finished queue
-        JPanel finishedQueuePanel = new JPanel();
-        finishedQueuePanel.setBorder(BorderFactory.createTitledBorder("Finished Processes"));
-        updateQueueDisplay(finishedQueuePanel, scheduler.getFinishedQueue());
-        queuePanel.add(finishedQueuePanel);
+    while (!scheduler.getAllQueue().isEmpty()) {
+        Process process = scheduler.getAllQueue().dequeue(); // Extraer proceso de la cola
+
+        switch (process.getStateProcess()) {
+            case ProcessState.READY:
+                readyProcesses.enqueue(process);
+                break;
+             case ProcessState.BLOCKED:
+                blockedProcesses.enqueue(process);
+                break;
+            case   ProcessState.FINISHED:
+                finishedProcesses.enqueue(process);
+                break;
+        }
+
+        tempQueue.enqueue(process); // Guardar en cola temporal para restaurar después
     }
+
+    // Restaurar allQueue con los elementos originales
+    while (!tempQueue.isEmpty()) {
+        scheduler.getAllQueue().enqueue(tempQueue.dequeue());
+    }
+
+    // Ready queue
+    JPanel readyQueuePanel = new JPanel();
+    readyQueuePanel.setBorder(BorderFactory.createTitledBorder("Ready Queue"));
+    updateQueueDisplay(readyQueuePanel, readyProcesses);
+    queuePanel.add(readyQueuePanel);
+
+    // Blocked queue
+    JPanel blockedQueuePanel = new JPanel();
+    blockedQueuePanel.setBorder(BorderFactory.createTitledBorder("Blocked Queue"));
+    updateQueueDisplay(blockedQueuePanel, blockedProcesses);
+    queuePanel.add(blockedQueuePanel);
+
+    // Finished queue
+    JPanel finishedQueuePanel = new JPanel();
+    finishedQueuePanel.setBorder(BorderFactory.createTitledBorder("Finished Processes"));
+    updateQueueDisplay(finishedQueuePanel, finishedProcesses);
+    queuePanel.add(finishedQueuePanel);
+
+    // Refrescar la vista
+    queuePanel.revalidate();
+    queuePanel.repaint();
+}
 
     private void updateQueueDisplay(JPanel panel, CustomQueue<Process> queue) {
         StringBuilder info = new StringBuilder("<html>");

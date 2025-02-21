@@ -173,6 +173,26 @@ public class Scheduler extends Thread {
         for (int i = newCount; i >= 2; i--) {
             System.out.println("iteraciones2");
             if (this.cpus[i] != null) {
+                if(this.cpus[i].getCurrentProcess()!=null){
+                    if (this.cpus[i+1].getCurrentProcess().getStateProcess().equals(ProcessState.BLOCKED)) {
+                    // Si el proceso está bloqueado, liberar CPU y mover a cola de bloqueados
+                    System.out.println("CPU " + this.cpus[i].getId() + " liberado del proceso " + this.cpus[i].getCurrentProcess().getIdProcess());
+                    blockedQueue.enqueue(this.cpus[i+1].getCurrentProcess());
+                } else if (this.cpus[i+1].getCurrentProcess().getStateProcess().equals(ProcessState.FINISHED)) {
+                    // Si el proceso terminó, mover a cola de finalizados
+                    finishedQueue.enqueue(this.cpus[i+1].getCurrentProcess());
+                    System.out.println("Proceso " + this.cpus[i].getCurrentProcess().getIdProcess() + " movido a cola de finalizados");
+                    System.out.println("CPU " + this.cpus[i+1].getId() + " liberado del proceso " + this.cpus[i+1].getCurrentProcess().getIdProcess());
+
+                }
+                    else if (this.cpus[i].getCurrentProcess().getStateProcess().equals(ProcessState.READY)) {
+                    // Si el proceso terminó, mover a cola de finalizados
+                    readyQueue.enqueue(this.cpus[i+1].getCurrentProcess());
+                    System.out.println("Proceso " + this.cpus[i].getCurrentProcess().getIdProcess() + " movido a cola de finalizados");
+                    System.out.println("CPU " + this.cpus[i].getId() + " liberado del proceso " + this.cpus[i].getCurrentProcess().getIdProcess());
+                }
+    
+                }
                 this.cpus[i] = null;
                 System.out.println("salio2");
                 break;
