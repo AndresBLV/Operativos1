@@ -1,6 +1,7 @@
 Class\CPU.class
 Class\Scheduler.class
 ENV\ProcessState.class
+Class\Data.class
 SimuladorUI\SimulatorGUI.class
 com\mycompany\mavenproject2\Mavenproject2.class
 EDD\CustomQueue.class

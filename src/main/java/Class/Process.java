@@ -29,7 +29,10 @@ public class Process extends Thread {
     private long creationTime;
     private long lastReadyTime; // Tiempo cuando el proceso entró a estado READY
     private long totalWaitTime; // Tiempo total acumulado en estado READY
-  private int priorityLevel;
+    private int priorityLevel;
+    
+    public Process(){}
+    
     public Process(int id, String name, int totalInstructions, boolean isIOBound, int cyclesUntilInterrupt, int cyclesForIO) {
         this.id = id;
         this.name = name;
@@ -63,6 +66,7 @@ public class Process extends Thread {
             }
 
             // Ejecutar instrucción
+            memoryAddressRegister++;
             programCounter++;
             remainingInstructions--;
             System.out.println("Proceso " + id + " ejecutando instrucción " + programCounter);

@@ -7,6 +7,8 @@ public class CPU {
     private boolean busy;
     private int clockCycle;
 
+    public CPU(){}
+    
     public CPU(int id) {
         this.id = id;
         this.busy = false;

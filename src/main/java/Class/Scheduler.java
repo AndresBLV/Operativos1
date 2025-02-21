@@ -1,4 +1,4 @@
-/*
+    /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
@@ -35,8 +35,10 @@ public class Scheduler extends Thread {
     private CustomQueue<Process>[] feedbackQueues; // Arreglo de colas con diferentes prioridades
     private int[] quantumPerLevel; // Quantum para cada nivel
     private static final int NUM_LEVELS = 3; // Número de niveles de prioridad
+    private boolean running;
 
     public Scheduler(int numCPUs) {
+        this.running = false;
         this.allQueue = new CustomQueue<>();
         this.readyQueue = new CustomQueue<>();
         this.blockedQueue = new CustomQueue<>();
@@ -174,11 +176,11 @@ public class Scheduler extends Thread {
             System.out.println("iteraciones2");
             if (this.cpus[i] != null) {
                 if(this.cpus[i].getCurrentProcess()!=null){
-                    if (this.cpus[i+1].getCurrentProcess().getStateProcess().equals(ProcessState.BLOCKED)) {
-                    // Si el proceso está bloqueado, liberar CPU y mover a cola de bloqueados
+                    if (this.cpus[i].getCurrentProcess().getStateProcess().equals(ProcessState.BLOCKED)) {
+                    // Si el proceso está bloqueadsS, liberar CPU y mover a cola de bloqueados
                     System.out.println("CPU " + this.cpus[i].getId() + " liberado del proceso " + this.cpus[i].getCurrentProcess().getIdProcess());
                     blockedQueue.enqueue(this.cpus[i+1].getCurrentProcess());
-                } else if (this.cpus[i+1].getCurrentProcess().getStateProcess().equals(ProcessState.FINISHED)) {
+                } else if (this.cpus[i].getCurrentProcess().getStateProcess().equals(ProcessState.FINISHED)) {
                     // Si el proceso terminó, mover a cola de finalizados
                     finishedQueue.enqueue(this.cpus[i+1].getCurrentProcess());
                     System.out.println("Proceso " + this.cpus[i].getCurrentProcess().getIdProcess() + " movido a cola de finalizados");
@@ -186,12 +188,18 @@ public class Scheduler extends Thread {
 
                 }
                     else if (this.cpus[i].getCurrentProcess().getStateProcess().equals(ProcessState.READY)) {
-                    // Si el proceso terminó, mover a cola de finalizados
+                    // Si el proceso terminó, mover a cola de Listos
                     readyQueue.enqueue(this.cpus[i+1].getCurrentProcess());
                     System.out.println("Proceso " + this.cpus[i].getCurrentProcess().getIdProcess() + " movido a cola de finalizados");
                     System.out.println("CPU " + this.cpus[i].getId() + " liberado del proceso " + this.cpus[i].getCurrentProcess().getIdProcess());
                 }
-    
+                    else if (this.cpus[i].getCurrentProcess().getStateProcess().equals(ProcessState.RUNNING)) {
+                    // Si el proceso terminó, mover a cola de Listos
+                    this.cpus[i].getCurrentProcess().setStateProcess(ProcessState.READY);
+                    readyQueue.enqueue(this.cpus[i].getCurrentProcess());
+                    System.out.println("Proceso " + this.cpus[i].getCurrentProcess().getIdProcess() + " movido a cola de Listos");
+                    System.out.println("CPU " + this.cpus[i].getId() + " liberado del proceso " + this.cpus[i].getCurrentProcess().getIdProcess());
+                }
                 }
                 this.cpus[i] = null;
                 System.out.println("salio2");
@@ -341,7 +349,7 @@ public class Scheduler extends Thread {
 
     @Override
     public void run() {
-        while (true) {
+        while (running) {
             try {
                 // Actualizar procesos bloqueados
                 checkAndUpdateBlockedProcesses();
@@ -656,5 +664,12 @@ public class Scheduler extends Thread {
     public void setCurrentAlgorithm(SchedulingAlgorithm currentAlgorithm) {
         this.currentAlgorithm = currentAlgorithm;
     }
-
+    
+    public boolean getRunning(){
+        return running;
+    }
+    
+    public void setRunning(boolean run){
+        this.running = run;
+    }
 }

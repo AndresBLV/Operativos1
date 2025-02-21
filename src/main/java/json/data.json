@@ -1,0 +1,1 @@
+{"cpus":[{"id":1,"currentProcess":null,"busy":false,"clockCycle":0},{"id":2,"currentProcess":null,"busy":false,"clockCycle":0},{"id":3,"currentProcess":null,"busy":false,"clockCycle":0},null,null],"allQueue":{"empty":false},"readyQueue":{"empty":true},"blockedQueue":{"empty":true},"finishedQueue":{"empty":false},"counterCPU":3,"cycleDuration":1000}

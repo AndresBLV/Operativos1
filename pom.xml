@@ -11,5 +11,12 @@
         <maven.compiler.target>21</maven.compiler.target>
         <exec.mainClass>com.mycompany.mavenproject2.Mavenproject2</exec.mainClass>
     </properties>
+     <dependencies>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.15.0</version>
+        </dependency>
+    </dependencies>
     <name>Operativos1</name>
 </project>

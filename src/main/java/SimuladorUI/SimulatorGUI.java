@@ -1,11 +1,14 @@
 package SimuladorUI;
 
 import Class.CPU;
+import Class.Data;
 import Class.Scheduler;
 import Class.Process;
 import ENV.ProcessState;
 import ENV.SchedulingAlgorithm;
 import EDD.CustomQueue;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import javax.swing.*;
 import java.awt.*;
@@ -13,7 +16,9 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.util.Arrays;
+import java.io.File;
+import java.io.IOException;
+import java.util.HashSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.event.ChangeEvent;
@@ -114,28 +119,67 @@ public class SimulatorGUI extends JFrame {
         
         // Process creation button
         JButton newProcessBtn = new JButton("New Process");
-        newProcessBtn.addActionListener(e -> showNewProcessDialog());
+        newProcessBtn.addActionListener(e -> {
+            showNewProcessDialog();
+            updateGUI();
+                });
 
         // Start simulation button
         JButton startButton = new JButton("Iniciar");
         startButton.addActionListener(e -> {
             if (!isSimulationRunning) {
+                scheduler.setRunning(true);
                 newProcessBtn.setVisible(false);
                 start();
-            } 
+            }else{
+                scheduler.setRunning(true);
+                newProcessBtn.setVisible(false);                
+            }
         });
         
         // Stop simulation button
         JButton stopButton = new JButton("Detener");
         stopButton.addActionListener(e -> {
-            if (isSimulationRunning) {
+            if (scheduler.getRunning()) {
                 newProcessBtn.setVisible(true);
-                stop();
+                scheduler.setRunning(false);
+                JOptionPane.showMessageDialog(null,"Se ha detenido el simulador");
             }else{
                 JOptionPane.showMessageDialog(null,"No ha iniciado el simulador");
             }
         });
+        
+        //Save simulation button
+        JButton saveButton = new JButton("Guardar");
+        saveButton.addActionListener(e -> {
+            if (!scheduler.getRunning()) {
+                String route = "src\\main\\java\\json\\data.json";
+                scheduler.getAllQueue().printQueue();
+                Data data = new Data(scheduler.getCpus(),scheduler.getAllQueue(),scheduler.getReadyQueue(), scheduler.getBlockedQueue(),scheduler.getFinishedQueue(),(Integer) cpuCountSpinner.getValue(),(Integer) cycleDurationSpinner.getValue());
+                saveJson(data,route);
+                JOptionPane.showMessageDialog(null,"Se han guardado las configuraciones");
+            }
+        });
+        
+        //Load simulation button
+        JButton loadButton = new JButton("Cargar");
+        loadButton.addActionListener(e -> {
+            if (!scheduler.getRunning()) {
+                String route = "src\\main\\java\\json\\data.json";
+                Data dataRead = loadJson(route);
+                scheduler.setCpus(dataRead.getCpus());
+                scheduler.setAllQueue(dataRead.getAllQueue());
+                scheduler.setReadyQueue(dataRead.getReadyQueue());
+                scheduler.setBlockedQueue(dataRead.getBlockedQueue());
+                scheduler.setFinishedQueue(dataRead.getFinishedQueue());
+                cpuCountSpinner.setValue(dataRead.getCounterCPU());
+                cycleDurationSpinner.setValue(dataRead.getCycleDuration());
+                JOptionPane.showMessageDialog(null,"Se han cargado las configuraciones");
 
+            }else{
+                JOptionPane.showMessageDialog(null,"La simulacion ya inicio");
+            }
+        });
         // Add components to panel
         panel.add(new JLabel("Scheduling Algorithm:"));
         panel.add(algorithmCombo);
@@ -146,10 +190,33 @@ public class SimulatorGUI extends JFrame {
         panel.add(newProcessBtn);
         panel.add(startButton);
         panel.add(stopButton);
+        panel.add(saveButton);
+        panel.add(loadButton);
 
         return panel;
     }
-
+    
+    private static void saveJson (Data data, String nombreArchivo){
+        ObjectMapper mapper = new ObjectMapper();
+        try{
+           mapper.writeValue(new File(nombreArchivo),data);
+           System.out.println("Datos guardados en: "+nombreArchivo);
+        }catch (IOException e){
+            System.err.println("Error al guardar JSON: "+e.getMessage());
+        }
+    }
+    
+    private static Data loadJson(String nombreArchivo){
+        ObjectMapper mapper = new ObjectMapper();
+        try{
+            mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+            return mapper.readValue(new File(nombreArchivo),Data.class);
+        }catch (IOException e){
+            System.err.println("Error al leer JSON: " + e.getMessage());
+            return null;
+        }
+    }
+    
     private void updateCPUCount(int newCount) {
         //System.out.println(Arrays.toString(scheduler.getCpus()));
         scheduler.addCPU(newCount);
