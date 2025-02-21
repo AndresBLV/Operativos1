@@ -350,32 +350,24 @@ public class Scheduler extends Thread {
     @Override
     public void run() {
         while (running) {
-            try {
-                // Actualizar procesos bloqueados
-                checkAndUpdateBlockedProcesses();
-
-                // Asignar procesos listos a CPUs disponibles
-                while (!readyQueue.isEmpty()) {
-                    Process nextProcess = getNextProcess();
-                    if (nextProcess != null) {
-                        if (cpuSemaphore.tryAcquire()) {
-                            CPU freeCPU = getNotBusyCPU();
-                            if (freeCPU != null) {
-                                executeProcess(freeCPU, nextProcess);
-                            } else {
-                                cpuSemaphore.release();
-                                readyQueue.enqueue(nextProcess);
-                            }
+            // Actualizar procesos bloqueados
+            checkAndUpdateBlockedProcesses();
+            // Asignar procesos listos a CPUs disponibles
+            while (!readyQueue.isEmpty()) {
+                Process nextProcess = getNextProcess();
+                if (nextProcess != null) {
+                    if (cpuSemaphore.tryAcquire()) {
+                        CPU freeCPU = getNotBusyCPU();
+                        if (freeCPU != null) {
+                            executeProcess(freeCPU, nextProcess);
                         } else {
+                            cpuSemaphore.release();
                             readyQueue.enqueue(nextProcess);
                         }
+                    } else {
+                        readyQueue.enqueue(nextProcess);
                     }
                 }
-
-                Thread.sleep(cycleDuration / 2);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-                break;
             }
         }
     }

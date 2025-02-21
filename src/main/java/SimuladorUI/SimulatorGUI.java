@@ -14,15 +14,13 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+
 
 public class SimulatorGUI extends JFrame {
 
@@ -180,6 +178,19 @@ public class SimulatorGUI extends JFrame {
                 JOptionPane.showMessageDialog(null,"La simulacion ya inicio");
             }
         });
+        
+        //Graphic simulation button
+        JButton graphicButton = new JButton("Graficar");
+        graphicButton.addActionListener(e -> {
+            if (!scheduler.getRunning()) {
+                String route = "src\\main\\java\\json\\data.json";
+                scheduler.getAllQueue().printQueue();
+                Data data = new Data(scheduler.getCpus(),scheduler.getAllQueue(),scheduler.getReadyQueue(), scheduler.getBlockedQueue(),scheduler.getFinishedQueue(),(Integer) cpuCountSpinner.getValue(),(Integer) cycleDurationSpinner.getValue());
+                saveJson(data,route);
+                JOptionPane.showMessageDialog(null,"Se han guardado las configuraciones");
+            }
+        });
+        
         // Add components to panel
         panel.add(new JLabel("Scheduling Algorithm:"));
         panel.add(algorithmCombo);
